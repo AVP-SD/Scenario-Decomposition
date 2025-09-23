@@ -169,7 +169,7 @@
 
         /* Update existing container styles to work with the background */
         .panel, #login-panel, .admin-view, .submission-details-view, .admin-filters {
-            background: rgba(255, 255, 255, 0.1);
+            background:var(--container-bg);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -1357,7 +1357,7 @@
 <form id="admin-login-form" style="margin-top:30px; border-top:1px solid #ddd; padding-top:15px;">
   <h3>Admin Login🥷🏽</h3>
   <div class="form-group">
-    <label for="admin-username">Admin Username:</label>
+    <label for="admin-username">Username:</label>
     <input type="text" id="admin-username" placeholder="Enter admin username">
   </div>
   <div class="form-group">
@@ -1373,8 +1373,8 @@
     <div id="task-panel" class="panel hidden">
         <h2>Task Information</h2>
         <div class="form-group">
-            <label for="task-id">GULP Link:</label>
-            <input type="text" id="task-id" placeholder="Enter GULP LINK‼️">
+            <label for="task-id">Task Link:</label>
+            <input type="text" id="task-id" placeholder="Enter Task LINK‼️">
         </div>
         <button id="start-task-btn">Start Task</button>
         <button id="logout-btn" class="danger">Logout</button>
@@ -1390,19 +1390,27 @@
         <button id="cancel-task-btn" class="danger">Cancel Task</button>
     </div>
 
-    <!-- User Submissions Panel -->
-   <div id="submissions-panel" class="panel hidden">
+   <!-- User Submissions Panel -->
+<div id="submissions-panel" class="panel hidden">
     <h2>Your Submissions</h2>
-  
+    
     <div id="submissions-list"></div>
-  <button id="new-task-btn">Start New Task</button>
-  <button id="user-logout-btn" class="danger">Logout</button>
+    
+    <!-- Add this section for submission details (same as admin panel) -->
+    <div id="submission-details-view" class="submission-details-view hidden">
+        <button id="back-to-submissions-btn" class="secondary" style="margin-bottom: 15px;">← Back to Submissions</button>
+        <div id="submission-full-details"></div>
+    </div>
+    
+    <button id="new-task-btn">Start New Task</button>
+    <button id="user-logout-btn" class="danger">Logout</button>
 </div>
 
     <!-- Admin Panel -->
     <div id="admin-panel" class="panel hidden">
         <h2>Admin Dashboard</h2>
         <button id="admin-logout-btn" class="danger" style="float: right;">Logout</button>
+        <button id="reload-all-data" class="btn">Reload All Shift Data</button>
         
         <!-- Admin Filters -->
         <div class="admin-filters">
@@ -1424,19 +1432,19 @@
         </div>
         
         <h3>All Users</h3>
-        <div id="users-list"></div>
-        
-        <div id="user-submissions-view" class="hidden">
-            <h3>User Submissions</h3>
-            <div id="selected-user-info"></div>
-            <div id="admin-submissions-list"></div>
-            <button id="back-to-users-btn">Back to Users</button>
-        </div>
-        
-        <!-- Submission Details View -->
-        <div id="submission-details-view" class="submission-details-view hidden">
-            <button id="back-to-submissions-btn" class="secondary" style="margin-bottom: 15px;">← Back to Submissions</button>
-            <div id="submission-full-details"></div>
+    <div id="users-list"></div>
+    
+    <div id="user-submissions-view" class="hidden">
+        <h3>User Submissions</h3>
+        <div id="selected-user-info"></div>
+        <div id="admin-submissions-list"></div>
+        <button id="back-to-users-btn">Back to Users</button>
+    </div>
+    
+    <!-- ✅ ADD THIS MISSING SECTION -->
+    <div id="submission-details-view" class="submission-details-view hidden">
+        <button id="back-to-submissions-btn" class="secondary" style="margin-bottom: 15px;">← Back to Submissions</button>
+        <div id="submission-full-details"></div>
         </div>
     </div>
 
@@ -5238,7 +5246,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-
+document.getElementById('reload-all-data').addEventListener('click', async function() {
+    this.disabled = true;
+    this.innerHTML = 'Loading... <span class="loading"></span>';
+    
+    await loadSubmissions();
+    applyFilters(); // Refresh the view
+    
+    this.disabled = false;
+    this.innerHTML = 'Reload All Shift Data';
+});
        
 
         // Initialize
@@ -5287,10 +5304,20 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('back-to-users-btn').addEventListener('click', () => {
                 userSubmissionsView.classList.add('hidden');
             });
-            document.getElementById('back-to-submissions-btn').addEventListener('click', function() {
-                document.getElementById('submission-details-view').classList.add('hidden');
-                document.getElementById('admin-submissions-list').classList.remove('hidden');
-            });
+// Update the back button listener to handle both user and admin contexts
+document.getElementById('back-to-submissions-btn').addEventListener('click', function() {
+
+    document.getElementById('submission-details-view').classList.add('hidden');
+    
+    if (state.isAdmin) {
+        // Admin context - show admin submissions list
+        document.getElementById('admin-submissions-list').classList.remove('hidden');
+    } else {
+        // User context - show user submissions list
+        document.getElementById('submissions-list').style.display = 'block';
+    }
+});
+           
 
             // Shift selection buttons
             document.querySelectorAll('.shift-btn').forEach(btn => {
@@ -5330,29 +5357,62 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadSubmissions() {
+async function loadSubmissions() {
+    try {
+        // Clear existing submissions
+        state.submissions = [];
+        
+        // Load submissions from ALL Firebase projects
+        const allSubmissions = [];
+        
+        // Helper function to load from a specific Firebase config
+        const loadFromShift = async (shiftName, config) => {
             try {
-                // تحميل التسليمات من Firestore
-                const snapshot = await db.collection("submissions").get();
-                state.submissions = snapshot.docs.map(doc => {
+
+                // Initialize a temporary Firebase app for this shift
+                const tempApp = firebase.initializeApp(config, `temp_${shiftName}`);
+                const tempDb = tempApp.firestore();
+                
+                // Fetch submissions
+                const snapshot = await tempDb.collection("submissions").get();
+                const shiftSubmissions = snapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
-                        id: doc.id,
+                        id: `${shiftName}_${doc.id}`, // Prefix with shift name to avoid ID conflicts
+                        shift: shiftName,
                         ...data,
-                        date: data.date.toDate(), // تحويل طابع الوقت من Firestore إلى كائن Date
-                        // إضافة معلومات التاريخ المنسقة للفلترة
-                        dateString: data.date.toDate().toLocaleDateString('en-US'),
-                        dateFormatted: formatDate(data.date.toDate())
+                        date: data.date?.toDate() || new Date(),
+                        dateString: (data.date?.toDate() || new Date()).toLocaleDateString('en-US'),
+                        dateFormatted: formatDate(data.date?.toDate() || new Date())
                     };
                 });
-                console.log(`Loaded ${state.submissions.length} submissions`);
+                
+                console.log(`Found ${shiftSubmissions.length} submissions from ${shiftName}:`, shiftSubmissions);
+                allSubmissions.push(...shiftSubmissions);
+                
+                // Clean up temporary app
+                await tempApp.delete();
+                
             } catch (error) {
-                console.error("Error loading submissions:", error);
-              
+                console.error(`Error loading submissions from ${shiftName}:`, error);
             }
+        };
+        
+        // Load from all shifts sequentially to avoid Firebase initialization conflicts
+        for (const [shiftName, config] of Object.entries(firebaseConfigs)) {
+            await loadFromShift(shiftName, config);
         }
         
-        // دالة مساعدة لتنسيق التاريخ بتنسيق "YYYY-MM-DD"
+        state.submissions = allSubmissions;
+        console.log(`Total submissions loaded from all shifts: ${state.submissions.length}`, state.submissions);
+        
+    } catch (error) {
+        console.error("Error loading submissions:", error);
+    }
+}
+
+
+// دالة مساعدة لتنسيق التاريخ بتنسيق "YYYY-MM-DD"
         function formatDate(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -5694,59 +5754,85 @@ const docRef = await db.collection("submissions").add({
         }
 
         function showAdminPanel() {
-            hideAllPanels();
-            adminPanel.style.display = 'block';
-            adminUsernameInput.value = '';
-            adminPasswordInput.value = '';
-            applyFilters();
-        }
+    hideAllPanels();
+    adminPanel.style.display = 'block';
+    adminUsernameInput.value = '';
+    adminPasswordInput.value = '';
+    
+    // Load all data when admin panel is shown
+    loadSubmissions().then(() => {
+        applyFilters();
+    });
+}
 
-        function applyFilters() {
-            const shiftFilter = document.getElementById('shift-filter').value;
-            const dateFilter = document.getElementById('date-filter').value;
-            
-            let filteredUsers = [...state.users];
-            
-            if (shiftFilter !== 'all') {
-                filteredUsers = filteredUsers.filter(user => user.shift === shiftFilter);
-            }
-            
-            renderFilteredUsersList(filteredUsers);
+function applyFilters() {
+    const shiftFilter = document.getElementById('shift-filter').value;
+    const dateFilter = document.getElementById('date-filter').value;
+    
+    // Get ALL unique users from ALL submissions (not just current shift)
+    const allUsers = getAllUsersFromSubmissions();
+    
+    let filteredUsers = [...allUsers];
+    
+    if (shiftFilter !== 'all') {
+        filteredUsers = filteredUsers.filter(user => user.shift === shiftFilter);
+    }
+    
+    renderFilteredUsersList(filteredUsers, dateFilter);
+}
+
+function getAllUsersFromSubmissions() {
+    const userMap = new Map();
+    
+    state.submissions.forEach(submission => {
+        const userKey = `${submission.user.name}_${submission.user.shift}`;
+        if (!userMap.has(userKey)) {
+            userMap.set(userKey, {
+                name: submission.user.name,
+                shift: submission.user.shift,
+                flashNumber: submission.user.flashNumber || 'Not provided',
+                username: submission.user.name.replace(/\s+/g, '_').toLowerCase()
+            });
+        }
+    });
+    
+    return Array.from(userMap.values());
+}
+
+function renderFilteredUsersList(users, dateFilter = '') {
+    usersList.innerHTML = '<table><tr><th>Username</th><th>Name</th><th>Shift</th><th>Submissions</th><th>Actions</th></tr>';
+    
+    users.forEach(user => {
+        let userSubmissions = state.submissions.filter(s => 
+            s.user.name === user.name && s.shift === user.shift
+        );
+        
+        if (dateFilter) {
+            const filterDate = new Date(dateFilter);
+            userSubmissions = userSubmissions.filter(sub => {
+                const subDate = new Date(sub.date);
+                return subDate.toDateString() === filterDate.toDateString();
+            });
         }
         
-        function renderFilteredUsersList(users) {
-            usersList.innerHTML = '<table><tr><th>Username</th><th>Name</th><th>Shift</th><th>Submissions</th><th>Actions</th></tr>';
-            
-            users.forEach(user => {
-                let userSubmissions = state.submissions.filter(s => s.user.name === user.name);
-                
-                const dateFilter = document.getElementById('date-filter').value;
-                if (dateFilter) {
-                    const filterDate = new Date(dateFilter);
-                    userSubmissions = userSubmissions.filter(sub => {
-                        const subDate = new Date(sub.date);
-                        return subDate.toDateString() === filterDate.toDateString();
-                    });
-                }
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${user.username || ''}</td>
-                    <td>${user.name}</td>
-                    <td>${user.shift}</td>
-                    <td>${userSubmissions.length}</td>
-                    <td><button onclick="viewUserSubmissions('${user.name}', '${dateFilter || ''}')">View Submissions</button></td>
-
-                `;
-                usersList.querySelector('table').appendChild(row);
-            });
-            
-            usersList.innerHTML += '</table>';
-        }
-
-       function viewUserSubmissions(username, dateFilter = '') {
-    const user = state.users.find(u => u.name === username);
-    let userSubmissions = state.submissions.filter(s => s.user.name === username);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${user.username || ''}</td>
+            <td>${user.name}</td>
+            <td>${user.shift}</td>
+            <td>${userSubmissions.length}</td>
+            <td><button onclick="viewUserSubmissions('${user.name}', '${user.shift}', '${dateFilter || ''}')">View Submissions</button></td>
+        `;
+        usersList.querySelector('table').appendChild(row);
+    });
+    
+    usersList.innerHTML += '</table>';
+}
+function viewUserSubmissions(username, userShift, dateFilter = '') {
+    let userSubmissions = state.submissions.filter(s => 
+        s.user.name === username && s.shift === userShift
+    );
+    console.log('Admin: Rendering submissions for', username, 'count:', userSubmissions.length);
 
     if (dateFilter) {
         const filterDate = new Date(dateFilter);
@@ -5756,13 +5842,12 @@ const docRef = await db.collection("submissions").add({
         });
     }
 
-    // Optional: Sort by date
     userSubmissions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     selectedUserInfo.innerHTML = `
-        <h4>User: ${user.name}</h4>
-        <p>Shift: ${user.shift}</p>
-        <p>Yubikey Number: ${user.flashNumber || 'Not provided'}</p>
+        <h4>User: ${username}</h4>
+        <p>Shift: ${userShift}</p>
+        <p>Yubikey Number: ${userSubmissions[0]?.user.flashNumber || 'Not provided'}</p>
         <p>Total Submissions: ${userSubmissions.length}</p>
     `;
 
@@ -5770,26 +5855,36 @@ const docRef = await db.collection("submissions").add({
 
     if (userSubmissions.length === 0) {
         adminSubmissionsList.innerHTML = `<p>No submissions found for this date.</p>`;
+    } else // In the viewUserSubmissions function, change the button creation:
+userSubmissions.forEach(sub => {
+    const subElement = document.createElement('div');
+    subElement.className = 'submission';
+    subElement.innerHTML = `
+        <p><strong>Shift:</strong> ${sub.shift}</p>
+        <p><strong>Task Link:</strong> ${sub.taskId}</p>
+        <p><strong>Date:</strong> ${new Date(sub.date).toLocaleString()}</p>
+        <button onclick="testSubmissionDetails('${sub.id}')">View Details</button>
+    `;
+    adminSubmissionsList.appendChild(subElement);
+});
+
+// Add this test function
+window.testSubmissionDetails = function(submissionId) {
+    console.log('Test function called with:', submissionId);
+    console.log('All submissions:', state.submissions);
+    
+    const submission = state.submissions.find(sub => sub.id === submissionId);
+    if (submission) {
+        console.log('Submission found:', submission);
+        viewSubmissionDetails(submissionId);
     } else {
-        userSubmissions.forEach(sub => {
-            const subElement = document.createElement('div');
-            subElement.className = 'submission';
-            subElement.innerHTML = `
-                <p><strong>GULP Link:</strong> ${sub.taskId}</p>
-                <p><strong>Date:</strong> ${new Date(sub.date).toLocaleString()}</p>
-                <p><strong>Classification:</strong> ${sub.classification}</p>
-                <p><strong>Accuracy:</strong> <span class="accuracy-score">${sub.accuracy || getAccuracyForTask(sub.taskId)}</span></p>
-                <button onclick="viewSubmissionDetails('${sub.id}')">View Details</button>
-                <button onclick="downloadSubmission('${sub.id}')">Download</button>
-            `;
-            adminSubmissionsList.appendChild(subElement);
-        });
+        console.log('Submission not found, available IDs:', state.submissions.map(s => s.id));
     }
+};
 
     userSubmissionsView.classList.remove('hidden');
     document.getElementById('submission-details-view').classList.add('hidden');
 }
-
 
         // دالة لحساب متوسط Accuracy للمستخدم
         function calculateAverageAccuracy(submissions) {
@@ -5806,48 +5901,95 @@ const docRef = await db.collection("submissions").add({
             return Math.round(average) + '%';
         }
 
-        function viewSubmissionDetails(submissionId) {
-            const submission = state.submissions.find(sub => sub.id === submissionId);
-            if (!submission) return;
-            
-            document.getElementById('admin-submissions-list').classList.add('hidden');
-            document.getElementById('submission-details-view').classList.remove('hidden');
-            
-            const detailsContainer = document.getElementById('submission-full-details');
-            detailsContainer.innerHTML = '';
-            
-            const classificationReconstruction = document.createElement('div');
-            classificationReconstruction.className = 'classification-reconstruction';
-            
-            const header = document.createElement('div');
-            header.innerHTML = `
-                <h4>Submission Details - GULP Link: ${submission.taskId}</h4>
-                <p><strong>User:</strong> ${submission.user.name} (${submission.user.shift})</p>
-                <p><strong>Date:</strong> ${submission.date.toLocaleString()}</p>
-                <p><strong>Final Classification:</strong> ${submission.classification}</p>
-                <p><strong>Accuracy:</strong> <span class="accuracy-score">${submission.accuracy || getAccuracyForTask(submission.taskId)}</span></p>
-                <hr>
-            `;
-            classificationReconstruction.appendChild(header);
-            
-            const answersList = document.createElement('div');
-            answersList.className = 'submission-answers';
-            
-            for (const [question, answer] of Object.entries(submission.answers)) {
-                const answerItem = document.createElement('div');
-                answerItem.className = 'answer-item';
-                answerItem.innerHTML = `
-                    <div class="answer-question">${question}</div>
-                    <div class="answer-value">${answer}</div>
-                `;
-                answersList.appendChild(answerItem);
-            }
-            
-            classificationReconstruction.appendChild(answersList);
-            detailsContainer.appendChild(classificationReconstruction);
-        }
+function viewSubmissionDetails(submissionId) {
+    const submission = state.submissions.find(sub => sub.id === submissionId);
+    if (!submission) return;
+    
+    // Get the currently active panel
+    const activePanel = state.isAdmin ? 
+        document.getElementById('admin-panel') : 
+        document.getElementById('submissions-panel');
+    
+    if (!activePanel) {
+        console.error('Active panel not found!');
+        return;
+    }
+    
+    // Find elements within the active panel
+    const submissionsList = activePanel.querySelector('#admin-submissions-list') || activePanel.querySelector('#submissions-list');
+    const submissionDetailsView = activePanel.querySelector('#submission-details-view');
+    const detailsContainer = activePanel.querySelector('#submission-full-details');
+    
+    if (!submissionsList || !submissionDetailsView || !detailsContainer) {
+        console.error('Required elements not found in active panel!');
+        return;
+    }
+    
+    // Hide list and show details
+    if (state.isAdmin) {
+        submissionsList.classList.add('hidden');
+    } else {
+        submissionsList.style.display = 'none';
+    }
+    submissionDetailsView.classList.remove('hidden');
+    
+    // Populate details
+    detailsContainer.innerHTML = '';
+    
+    const classificationReconstruction = document.createElement('div');
+    classificationReconstruction.className = 'classification-reconstruction';
+    
+    const header = document.createElement('div');
+    header.innerHTML = `
+        <h4>Submission Details - GULP Link: ${submission.taskId}</h4>
+        ${state.isAdmin ? `<p><strong>Shift:</strong> ${submission.shift || 'N/A'}</p>` : ''}
+        ${state.isAdmin ? `<p><strong>User:</strong> ${submission.user.name} (${submission.user.shift})</p>` : ''}
+        <p><strong>Date:</strong> ${submission.date.toLocaleString()}</p>
+        <hr>
+    `;
+    classificationReconstruction.appendChild(header);
+    
+    const answersList = document.createElement('div');
+    answersList.className = 'submission-answers';
+    
+    for (const [question, answer] of Object.entries(submission.answers)) {
+        const answerItem = document.createElement('div');
+        answerItem.className = 'answer-item';
+        answerItem.innerHTML = `
+            <div class="answer-question">${question}</div>
+            <div class="answer-value">${answer}</div>
+        `;
+        answersList.appendChild(answerItem);
+    }
+    
+    classificationReconstruction.appendChild(answersList);
+    detailsContainer.appendChild(classificationReconstruction);
+}
 
-        function startTask(e) {
+// Update back button handler to work with both panels
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'back-to-submissions-btn') {
+        const activePanel = state.isAdmin ? 
+            document.getElementById('admin-panel') : 
+            document.getElementById('submissions-panel');
+        
+        if (activePanel) {
+            const submissionDetailsView = activePanel.querySelector('#submission-details-view');
+            const submissionsList = activePanel.querySelector('#admin-submissions-list') || activePanel.querySelector('#submissions-list');
+            
+            if (submissionDetailsView) submissionDetailsView.classList.add('hidden');
+            if (submissionsList) {
+                if (state.isAdmin) {
+                    submissionsList.classList.remove('hidden');
+                } else {
+                    submissionsList.style.display = 'block';
+                }
+            }
+        }
+    }
+});
+
+function startTask(e) {
             e.preventDefault();
             
             const taskId = taskIdInput.value.trim();
@@ -6103,12 +6245,9 @@ function renderSubmissionPage() {
         const subElement = document.createElement('div');
         subElement.className = 'submission';
         subElement.innerHTML = `
-            <p><strong>GULP Link:</strong> ${sub.taskId}</p>
+            <p><strong>Task Link:</strong> ${sub.taskId}</p>
             <p><strong>Date:</strong> ${sub.date.toLocaleString()}</p>
-            <p><strong>Classification:</strong> ${sub.classification}</p>
-            <p><strong>Accuracy:</strong> <span class="accuracy-score">${sub.accuracy || getAccuracyForTask(sub.taskId)}</span></p>
             <button onclick="viewSubmissionDetails('${sub.id}')">View Details</button>
-            <button onclick="downloadSubmission('${sub.id}')">Download</button>
         `;
         submissionsList.appendChild(subElement);
     });
@@ -6157,11 +6296,22 @@ function prevSubmissionPage() {
 }
 
         function startNewTask() {
-            showTaskPanel();
-            taskIdInput.value = '';
-            state.currentTask = null;
-        }
-
+    // Clear the task ID input field
+    const taskIdInput = document.getElementById('task-id');
+    if (taskIdInput) {
+        taskIdInput.value = '';
+        console.log('Cleared task ID input');
+    } else {
+        console.error('Task ID input element not found!');
+    }
+    
+    // Reset the current task
+    state.currentTask = null;
+    console.log('Reset current task to null');
+    
+    // Show the task panel
+    showTaskPanel();
+}
         function cancelTask() {
             if (confirm('Are you sure you want to cancel this task? All progress will be lost.')) {
                 showTaskPanel();
@@ -6610,6 +6760,3 @@ document.addEventListener('DOMContentLoaded', () => {
     </script>
 </body>
 </html>
-
-
-
