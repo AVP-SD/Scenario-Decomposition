@@ -4,14 +4,11 @@
     <title>Scenario Decomposition Practice</title>
    <!-- Basic favicon -->
 <link rel="icon" href="favicon_io/favicon.ico" sizes="any">
-
 <!-- PNG icons -->
 <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
-
 <!-- Apple devices (iPhone, iPad) -->
 <link rel="apple-touch-icon" href="favicon_io/apple-touch-icon.png">
-
 <!-- Optional: manifest (if generated) -->
 <link rel="manifest" href="favicon_io/site.webmanifest">
     <!-- Add Firebase SDK -->
@@ -19,7 +16,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-analytics.js"></script>
-    <script src="https://apis.google.com/js/api.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -32,6 +28,23 @@
     });
   };
 </script>
+    <!-- Quiet console output by default. Add ?debug=1 to URL or set localStorage.DEBUG='1' to re-enable logs -->
+    <script>
+      (function () {
+        try {
+          var debugEnabled = /[?&]debug=1(?!\d)/.test(location.search) || (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG') === '1');
+          if (!debugEnabled && typeof console !== 'undefined') {
+            var noop = function () {};
+            // Silence verbose logs; keep warnings and errors visible
+            if (console.log) console.log = noop;
+            if (console.info) console.info = noop;
+            if (console.debug) console.debug = noop;
+          }
+        } catch (e) {
+          // If anything goes wrong, do nothing to avoid breaking the page
+        }
+      })();
+    </script>
     <style>
      
         * {
@@ -336,13 +349,7 @@
             box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
         }
 
-        [data-theme="dark"] .accuracy-score {
-            background: linear-gradient(135deg, #2e7d32, #1b5e20);
-        }
-
-        [data-theme="dark"] .accuracy-score:contains("N/A") {
-            background: linear-gradient(135deg, #424242, #212121);
-        }
+        
 
         body {
             background-color: var(--background-color);
@@ -1238,13 +1245,7 @@
             }
         }
 
-        .classification-rqe { color: #4CAF50; }
-        .classification-nmc { color: #FFA500; }
-        .classification-scel0plus { color: #FF0000; }
-        .classification-scel1 { color: #FF0000; }
-        .classification-scel2 { color: #FF0000; }
-        .classification-scel3 { color: #FF0000; }
-        .classification-scel4 { color: #FF0000; }
+        
         .boolean-option {
             display: flex;
             align-items: center;
@@ -1277,19 +1278,6 @@
             cursor: pointer;
             flex: 1;
             font-weight: 500;
-        }
-        .accuracy-score {
-            font-weight: bold;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
-            display: inline-block;
-            min-width: 60px;
-            text-align: center;
-        }
-        .accuracy-score:contains("N/A") {
-            background: linear-gradient(135deg, #9e9e9e, #757575);
         }
     </style>
 </head>
@@ -1349,7 +1337,7 @@
   <label for="flash-number">Yubikey Number:</label>
   <input type="text" id="flash-number" placeholder="Enter your Yubikey number">
 </div>
-<button id="login-btn" type="button">Start Classification</button>
+<button id="login-btn" type="button">Start</button>
 <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Practice Dashboard</button>
        
         
@@ -1377,6 +1365,7 @@
             <input type="text" id="task-id" placeholder="Enter Task LINK‼️">
         </div>
         <button id="start-task-btn">Start Task</button>
+        <button id="my-submissions-btn" class="secondary">My Submissions</button>
         <button id="logout-btn" class="danger">Logout</button>
     </div>
 
@@ -1386,7 +1375,7 @@
         <div id="current-user" style="margin-bottom: 20px;"></div>
         <div id="current-task" style="margin-bottom: 20px;"></div>
         <div id="tree-container" class="tree"></div>
-        <button id="submit-btn" class="hidden" style="margin-top: 20px;">Submit Classification</button>
+        <button id="submit-btn" class="hidden" style="margin-top: 20px;">Submit</button>
         <button id="cancel-task-btn" class="danger">Cancel Task</button>
     </div>
 
@@ -5094,8 +5083,6 @@
         // ==============================================
         // === نهاية منطقة شجرة القرارات ==================
         // ==============================================
-
-
         // User data with shifts
         const usersByShift = {
             "Morning": [
@@ -5151,8 +5138,7 @@
             isAdmin: false,
             users: [],
             submissions: [],
-            currentAnswers: {},
-            accuracyData: {} // لتخزين بيانات Accuracy من Google Sheets
+            currentAnswers: {}
         };
 
         // Admin credentials
@@ -5173,7 +5159,8 @@
         const selectedUserInfo = document.getElementById('selected-user-info');
         const submissionsList = document.getElementById('submissions-list');
         const usernameInput = document.getElementById('username');
-        const flashValue = document.getElementById('flash-number').value.trim() || 'Not provided';
+        const flashNumberInput = document.getElementById('flash-number');
+        const flashValue = (flashNumberInput ? flashNumberInput.value.trim() : '') || 'Not provided';
         const adminUsernameInput = document.getElementById('admin-username');
         const adminPasswordInput = document.getElementById('admin-password');
         const taskIdInput = document.getElementById('task-id');
@@ -5250,14 +5237,12 @@ document.getElementById('reload-all-data').addEventListener('click', async funct
     this.disabled = true;
     this.innerHTML = 'Loading... <span class="loading"></span>';
     
-    await loadSubmissions();
-    applyFilters(); // Refresh the view
+    // Delegate to applyFilters which performs on-demand load
+    applyFilters();
     
     this.disabled = false;
     this.innerHTML = 'Reload All Shift Data';
 });
-       
-
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize Firebase with Overnight shift by default
@@ -5285,16 +5270,14 @@ document.getElementById('reload-all-data').addEventListener('click', async funct
                 }
             });
 
-            // Load initial data
+            // Load initial data (no bulk submissions load)
             loadUsers();
-            loadSubmissions();
-            loadAccuracyData(); // تحميل بيانات Accuracy من Google Sheets
-            startAccuracyUpdateInterval(); // بدء التحديث التلقائي
 
             // Event listeners
             document.getElementById('login-btn').addEventListener('click', handleLogin);
             document.getElementById('admin-login-btn').addEventListener('click', handleAdminLogin);
             document.getElementById('start-task-btn').addEventListener('click', startTask);
+            document.getElementById('my-submissions-btn').addEventListener('click', showSubmissionsPanel);
             document.getElementById('submit-btn').addEventListener('click', submitClassification);
             document.getElementById('new-task-btn').addEventListener('click', startNewTask);
             document.getElementById('logout-btn').addEventListener('click', logout);
@@ -5338,7 +5321,7 @@ document.getElementById('back-to-submissions-btn').addEventListener('click', fun
             });
 
             // Filter event listeners
-            document.getElementById('apply-filters').addEventListener('click', applyFilters);
+            document.getElementById('apply-filters').addEventListener('click', () => applyFilters());
             document.getElementById('reset-filters').addEventListener('click', function() {
                 document.getElementById('shift-filter').value = 'all';
                 document.getElementById('date-filter').value = '';
@@ -5357,57 +5340,50 @@ document.getElementById('back-to-submissions-btn').addEventListener('click', fun
             }
         }
 
+// Deprecated heavy loader. Avoid calling.
 async function loadSubmissions() {
-    try {
-        // Clear existing submissions
-        state.submissions = [];
-        
-        // Load submissions from ALL Firebase projects
-        const allSubmissions = [];
-        
-        // Helper function to load from a specific Firebase config
-        const loadFromShift = async (shiftName, config) => {
-            try {
+    console.warn('loadSubmissions() is deprecated. Use loadAdminSubmissionsByShiftAndDate() or the user paginated loader.');
+}
 
-                // Initialize a temporary Firebase app for this shift
-                const tempApp = firebase.initializeApp(config, `temp_${shiftName}`);
-                const tempDb = tempApp.firestore();
-                
-                // Fetch submissions
-                const snapshot = await tempDb.collection("submissions").get();
-                const shiftSubmissions = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: `${shiftName}_${doc.id}`, // Prefix with shift name to avoid ID conflicts
-                        shift: shiftName,
-                        ...data,
-                        date: data.date?.toDate() || new Date(),
-                        dateString: (data.date?.toDate() || new Date()).toLocaleDateString('en-US'),
-                        dateFormatted: formatDate(data.date?.toDate() || new Date())
-                    };
-                });
-                
-                console.log(`Found ${shiftSubmissions.length} submissions from ${shiftName}:`, shiftSubmissions);
-                allSubmissions.push(...shiftSubmissions);
-                
-                // Clean up temporary app
-                await tempApp.delete();
-                
-            } catch (error) {
-                console.error(`Error loading submissions from ${shiftName}:`, error);
-            }
-        };
-        
-        // Load from all shifts sequentially to avoid Firebase initialization conflicts
-        for (const [shiftName, config] of Object.entries(firebaseConfigs)) {
-            await loadFromShift(shiftName, config);
+// Admin on-demand loader for a single shift (optional by date)
+async function loadAdminSubmissionsByShiftAndDate(shift, date = null) {
+    try {
+        state.submissions = [];
+        if (!shift) { return; }
+        const config = firebaseConfigs[shift];
+        if (!config) {
+            console.error(`Firebase config for shift '${shift}' not found.`);
+            return;
         }
-        
-        state.submissions = allSubmissions;
-        console.log(`Total submissions loaded from all shifts: ${state.submissions.length}`, state.submissions);
-        
+        const appName = `admin_${shift}_${Date.now()}`;
+        const tempApp = firebase.initializeApp(config, appName);
+        const tempDb = tempApp.firestore();
+        let query = tempDb.collection('submissions');
+        if (date) {
+            const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+            const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 0, 0, 0, 0);
+            query = query.where('date', '>=', start).where('date', '<', end).orderBy('date', 'desc');
+        } else {
+            // Limit when no date filter to avoid excessive reads
+            query = query.orderBy('date', 'desc').limit(200);
+        }
+        const snapshot = await query.get();
+        const items = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const d = data.date?.toDate?.() || new Date();
+            return {
+                id: doc.id,
+                shift,
+                ...data,
+                date: d,
+                dateString: d.toLocaleDateString('en-US'),
+                dateFormatted: formatDate(d)
+            };
+        });
+        await tempApp.delete();
+        state.submissions = items;
     } catch (error) {
-        console.error("Error loading submissions:", error);
+        console.error('Error loading admin submissions:', error);
     }
 }
 
@@ -5431,197 +5407,22 @@ async function loadSubmissions() {
 
 
         // Initialize Google Sheets API (simplified)
-        async function initGoogleSheetsAPI() {
-            try {
-                console.log('Initializing Google API client...');
-                
-                // Initialize the Google API client with minimal configuration
-                await gapi.client.init({
-                    apiKey: 'AIzaSyBVoVWGNGqHXUkDuK9oUPuX_QZZtDgpVoE',
-                    clientId: '1094461669104-4q2h3b3h84nscv7viv0obpm7jr9edin1.apps.googleusercontent.com',
-                    discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-                    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly'
-                });
-                
-                console.log('Google client initialized successfully');
-
-                // Add a small delay to ensure initialization is complete
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // Load the sheets API if not already loaded
-                if (!gapi.client.sheets) {
-                    console.log('Loading sheets API...');
-                    await gapi.client.load('sheets', 'v4');
-                    console.log('Sheets API loaded successfully');
-                } else {
-                    console.log('Sheets API already loaded');
-                }
-                
-                // Add another small delay before loading data
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                console.log('Google Sheets API initialization complete');
-                return true;
-            } catch (error) {
-                console.error('Error initializing Google Sheets API:', error);
-                if (error.result && error.result.error) {
-                    console.error('API Error details:', error.result.error);
-                }
-                return false;
-            }
-        }
+        async function initGoogleSheetsAPI() { return false; }
 
         // Load gapi on page load
-        window.addEventListener('load', function() {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = function() {
-                console.log('Google API client loaded');
-                initGoogleSheetsAPI();
-            };
-            script.onerror = function() {
-                console.error('Failed to load Google API client');
-            };
-            document.body.appendChild(script);
-        });
+        // Google Sheets dynamic loader removed
 
-        // Load model answers and metrics from Google Sheet
-        async function loadAccuracyData() {
-            try {
-                console.log('Starting to load accuracy data...');
-                
-                // Make sure the client is initialized and signed in
-                if (!gapi.client?.sheets) {
-                    console.log('Google Sheets API not initialized, initializing now...');
-                    try {
-                        await gapi.client.load('sheets', 'v4');
-                        console.log('Google Sheets API initialized successfully');
-                    } catch (initError) {
-                        console.error('Failed to initialize Google Sheets API:', initError);
-                        return;
-                    }
-                }
-
-                const SPREADSHEET_ID = '10LZ2HxQ7V1O4sG6-78kDf6CgUKcB36MMtAAHHt2otOw';
-                const RANGE = 'Sheet1!A:F'; // Include columns for GULP Link, TP, FP, FN, TN
-
-                console.log('Fetching data from sheet:', SPREADSHEET_ID);
-                let response;
-                try {
-                    response = await gapi.client.sheets.spreadsheets.values.get({
-                        spreadsheetId: SPREADSHEET_ID,
-                        range: RANGE,
-                        valueRenderOption: 'UNFORMATTED_VALUE'
-                    });
-                    console.log('Successfully fetched data from sheet');
-                } catch (fetchError) {
-                    console.error('Failed to fetch data from sheet:', fetchError);
-                    if (fetchError.status === 401) {
-                        console.log('Authentication error detected, attempting to reinitialize...');
-                        await initGoogleSheetsAPI();
-                        return;
-                    }
-                    return;
-                }
-
-                const rows = response.result.values;
-                if (!rows || rows.length === 0) {
-                    console.error('No data found in sheet');
-                    return;
-                }
-
-                console.log(`Found ${rows.length} rows in sheet`);
-                state.accuracyData = {};
-                let processedCount = 0;
-                let errorCount = 0;
-                
-                // Skip header row
-                for (let i = 1; i < rows.length; i++) {
-                    const row = rows[i];
-                    if (!row || row.length < 5) {
-                        console.log(`Skipping incomplete row ${i}: insufficient columns`);
-                        continue;
-                    }
-
-                    const [gulpLink, tp, fp, fn, tn] = row;
-                    if (!gulpLink) {
-                        console.log(`Skipping row ${i}: missing GULP link`);
-                        continue;
-                    }
-
-                    try {
-                        // Convert metrics to numbers and handle invalid values
-                        const metrics = {
-                            tp: Number(tp),
-                            fp: Number(fp),
-                            fn: Number(fn),
-                            tn: Number(tn)
-                        };
-
-                        // Log raw values for debugging
-                        console.log(`Row ${i} raw values:`, {
-                            gulpLink,
-                            metrics,
-                            rawTP: tp,
-                            rawFP: fp,
-                            rawFN: fn,
-                            rawTN: tn
-                        });
-                        
-                        // Calculate accuracy
-                        const accuracy = calculateAccuracy(metrics);
-                        state.accuracyData[gulpLink] = accuracy + '%';
-                        console.log(`Successfully processed ${gulpLink}: ${accuracy}%`);
-                        processedCount++;
-                    } catch (err) {
-                        console.error(`Error processing row ${i}:`, err);
-                        errorCount++;
-                    }
-                }
-
-                console.log(`Accuracy data loading complete:\n` +
-                           `- Total rows processed: ${rows.length - 1}\n` +
-                           `- Successfully processed: ${processedCount}\n` +
-                           `- Errors encountered: ${errorCount}`);
-                           
-                // Update UI if needed
-                if (typeof updateSubmissionsList === 'function') {
-                    updateSubmissionsList();
-                }
-            } catch (error) {
-                console.error('Fatal error in loadAccuracyData:', error);
-            }
-        }
-
-        
+        // Accuracy features removed
+        async function loadAccuracyData() { return; }
 
         // Get accuracy for a specific task
-        function getAccuracyForTask(taskId) {
-            if (!taskId || taskId.trim() === '') {
-                return 'N/A';
-            }
-
-            return state.accuracyData[taskId] || 'N/A';
-        }
+        function getAccuracyForTask(taskId) { return 'N/A'; }
 
         // Update accuracy data every 5 minutes
-        function startAccuracyUpdateInterval() {
-            // Load initial data
-            loadAccuracyData();
+        function startAccuracyUpdateInterval() { /* removed */ }
 
-            // Update every 5 minutes
-            setInterval(() => {
-                loadAccuracyData();
-                // Update existing submissions
-                if (state.submissions.length > 0) {
-                    state.submissions.forEach(sub => {
-                        sub.accuracy = getAccuracyForTask(sub.taskId);
-                    });
-                }
-            }, 5 * 60 * 1000);
-        }
-
-        // Initialize Google Sheets API when the page loads
-        gapi.load('client', initGoogleSheetsAPI);
+        // دالة لحساب متوسط Accuracy للمستخدم
+        function calculateAverageAccuracy() { return 'N/A'; }
 
         async function saveUser(user) {
             try {
@@ -5650,10 +5451,9 @@ const docRef = await db.collection("submissions").add({
   user: {
     name: submission.user.name,
     shift: submission.user.shift,
-    flashNumber: submission.user.flashNumber // ✅ هياخد القيمة اللي أدخلها المستخدم
+    flashNumber: submission.user.flashNumber // 
   },
   date: firebase.firestore.FieldValue.serverTimestamp(),
-  classification: submission.classification,
   answers: submission.answers,
   taskId: submission.taskId
 });
@@ -5683,7 +5483,7 @@ const docRef = await db.collection("submissions").add({
         return;
     }
 
-    // ✅ Check for yubikey (flash number)
+    //  Check for yubikey (flash number)
     if (!flashNumber) {
         alert('Please enter your Yubikey number');
         return;
@@ -5750,7 +5550,7 @@ const docRef = await db.collection("submissions").add({
         function showTaskPanel() {
             hideAllPanels();
             taskPanel.style.display = 'block';
-            flashNumberInput.value = '';
+            if (flashNumberInput) flashNumberInput.value = '';
         }
 
         function showAdminPanel() {
@@ -5758,27 +5558,23 @@ const docRef = await db.collection("submissions").add({
     adminPanel.style.display = 'block';
     adminUsernameInput.value = '';
     adminPasswordInput.value = '';
-    
-    // Load all data when admin panel is shown
-    loadSubmissions().then(() => {
-        applyFilters();
-    });
+    // Do not auto-load all submissions. Choose filters then click Apply to load on demand.
 }
 
 function applyFilters() {
-    const shiftFilter = document.getElementById('shift-filter').value;
-    const dateFilter = document.getElementById('date-filter').value;
-    
-    // Get ALL unique users from ALL submissions (not just current shift)
-    const allUsers = getAllUsersFromSubmissions();
-    
-    let filteredUsers = [...allUsers];
-    
-    if (shiftFilter !== 'all') {
-        filteredUsers = filteredUsers.filter(user => user.shift === shiftFilter);
+    const shift = document.getElementById('shift-filter').value;
+    const dateVal = document.getElementById('date-filter').value;
+    const date = dateVal ? new Date(dateVal) : null;
+
+    if (shift === 'all') {
+        usersList.innerHTML = '<p>Please select a shift, then Apply Filters.</p>';
+        return;
     }
-    
-    renderFilteredUsersList(filteredUsers, dateFilter);
+
+    loadAdminSubmissionsByShiftAndDate(shift, date).then(() => {
+        const allUsers = getAllUsersFromSubmissions();
+        renderFilteredUsersList(allUsers, dateVal);
+    });
 }
 
 function getAllUsersFromSubmissions() {
@@ -5886,22 +5682,7 @@ window.testSubmissionDetails = function(submissionId) {
     document.getElementById('submission-details-view').classList.add('hidden');
 }
 
-        // دالة لحساب متوسط Accuracy للمستخدم
-        function calculateAverageAccuracy(submissions) {
-            if (submissions.length === 0) return 'N/A';
-            
-            const accuracies = submissions.map(sub => {
-                const accuracy = getAccuracyForTask(sub.taskId);
-                return accuracy === 'N/A' ? 0 : parseInt(accuracy.replace('%', ''));
-            }).filter(acc => acc > 0);
-            
-            if (accuracies.length === 0) return 'N/A';
-            
-            const average = accuracies.reduce((sum, acc) => sum + acc, 0) / accuracies.length;
-            return Math.round(average) + '%';
-        }
-
-function viewSubmissionDetails(submissionId) {
+        function viewSubmissionDetails(submissionId) {
     const submission = state.submissions.find(sub => sub.id === submissionId);
     if (!submission) return;
     
@@ -6092,52 +5873,45 @@ function startTask(e) {
                 const submission = {
                     user: state.currentUser,
                     taskId: state.currentTask,
-                    date: new Date(), // This will be client's date, Firestore serverTimestamp is better for consistency
-                    answers: state.currentAnswers,
-                    classification: getFinalClassification()
+                    date: new Date(), // Client time; serverTimestamp can be used in save
+                    answers: state.currentAnswers
                 };
 
                 const submissionId = await saveSubmission(submission);
                 submission.id = submissionId;
-                submission.accuracy = getAccuracyForTask(state.currentTask); // إضافة Accuracy
                 state.submissions.push(submission);
-
-                // تحديث البيانات في الوقت الفعلي
-                if (!state.accuracyData[state.currentTask]) {
-                    state.accuracyData[state.currentTask] = submission.accuracy;
-                }
-
-                // Show custom popup with cat GIF based on accuracy
-                const accuracy = getAccuracyForTask(state.currentTask);
+                
+                // Show custom popup with a fun cat GIF (kept as requested)
                 const popupContent = document.createElement('div');
                 popupContent.className = 'quality-popup';
                 
-                // Select GIF based on accuracy
-                let catGifUrl = '';
-                if (accuracy >= 80) {
-                    catGifUrl = 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTI1NnI4Z2g5Y25uaWt5MGoweDE2emluZWZvaW8yazlvOTZnNjBicCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzyTuYCmvSORqs1ABM/giphy.gif'; // Happy cat
-                } else if (accuracy >= 50) {
-                    catGifUrl = 'https://media.giphy.com/media/13HXKG2HGN8aPK/giphy.gif'; // Cat driving
-                } else {
-                    catGifUrl = 'https://i.giphy.com/H4DjXQXamtTiIuCcRU.webp'; // Sad/angry cat
-                }
+                // Pick a fun GIF
+                const gifs = [
+                  'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTI1NnI4Z2g5Y25uaWt5MGoweDE2emluZWZvaW8yazlvOTZnNjBicCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzyTuYCmvSORqs1ABM/giphy.gif',
+                  'https://media.giphy.com/media/13HXKG2HGN8aPK/giphy.gif',
+                  'https://i.giphy.com/H4DjXQXamtTiIuCcRU.webp'
+                ];
+                const catGifUrl = gifs[Math.floor(Math.random() * gifs.length)];
                 
                 popupContent.innerHTML = `
                     <div class="popup-content">
                         <img src="${catGifUrl}" alt="Cat reaction" class="cat-gif">
                         <h3>Submission Successful! 🎉</h3>
                         <p><strong>Task ID:</strong> ${state.currentTask}</p>
-                        <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Responder Dashboard</button>
-                        <button onclick="this.parentElement.parentElement.remove()" class="close-popup">Close</button>
+                        <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Practice Dashboard</button>
+                        <button onclick="closeSubmissionPopup(this)" class="close-popup">Close</button>
                     </div>
                 `;
                 
                 document.body.appendChild(popupContent);
-                
-                showSubmissionsPanel();
+                // Auto-close popup after a short delay, then open My Submissions
+                setTimeout(() => {
+                    try { popupContent.remove(); } catch (_) {}
+                    startNewTask();
+                }, 120000);
             } catch (error) {
-                console.error("Error submitting classification:", error);
-                alert("Error submitting classification. Please try again.");
+                console.error("Error submitting:", error);
+                alert("Error during submission. Please try again.");
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = originalText;
@@ -6150,13 +5924,118 @@ function startTask(e) {
        let currentSubmissionPage = 1;
 const submissionsPerPage = 5;
 let filteredSubmissions = [];
+let userSubsSortField = 'date';
+let userSubsSortDir = 'desc'; // 'desc' or 'asc'
+
+// Cache and pagination state for the current user's submissions
+let userSubsCache = [];
+let userSubsCursor = null;
+let userSubsHasMore = true;
+
+async function loadUserSubmissionsPaginated(pageSize = submissionsPerPage, reset = false) {
+    if (!state.currentUser) return;
+    if (reset) {
+        userSubsCache = [];
+        userSubsCursor = null;
+        userSubsHasMore = true;
+    }
+    if (!userSubsHasMore) return;
+    try {
+        let query = db.collection('submissions')
+            .where('user.name', '==', state.currentUser.name)
+            .where('user.shift', '==', state.currentUser.shift)
+            .orderBy('date', 'desc')
+            .limit(pageSize);
+        if (userSubsCursor) query = query.startAfter(userSubsCursor);
+        const snap = await query.get();
+        if (!snap.empty) {
+            const newItems = snap.docs.map(d => {
+                const data = d.data();
+                const dte = data.date?.toDate?.() || new Date();
+                return {
+                    id: d.id,
+                    ...data,
+                    date: dte,
+                    dateFormatted: formatDate(dte)
+                };
+            });
+            userSubsCache.push(...newItems);
+            userSubsCursor = snap.docs[snap.docs.length - 1];
+            userSubsHasMore = snap.size === pageSize;
+            // Keep global in sync for details/download
+            state.submissions = [...userSubsCache];
+        } else {
+            userSubsHasMore = false;
+        }
+    } catch (err) {        // Fallback: load by name only (no composite index needed), then filter by shift in-memory
+        let fallbackLoaded = false;
+        try {
+            const snap = await db.collection('submissions')
+                .where('user.name', '==', state.currentUser.name)
+                .limit(pageSize * 5) // fetch more to compensate for client-side filtering
+                .get();
+            const newItems = snap.docs.map(d => {
+                const data = d.data();
+                const dte = data.date?.toDate?.() || new Date();
+                return {
+                    id: d.id,
+                    ...data,
+                    date: dte,
+                    dateFormatted: formatDate(dte)
+                };
+            }).filter(it => it.user && it.user.shift === state.currentUser.shift);
+            // Merge avoiding duplicates
+            const existingIds = new Set(userSubsCache.map(it => it.id));
+            newItems.forEach(it => { if (!existingIds.has(it.id)) userSubsCache.push(it); });
+            // Sort client-side
+            userSubsCache.sort((a,b) => b.date - a.date);
+            userSubsHasMore = false; // disable further pagination in fallback mode
+            state.submissions = [...userSubsCache];
+            fallbackLoaded = userSubsCache.length > 0;
+        } catch (fallbackErr) {
+            console.error('Fallback user submissions load failed:', fallbackErr);
+        }
+        if (!fallbackLoaded) {
+            handleFirestoreIndexError(err);
+        }
+    }
+}
+
+function handleFirestoreIndexError(err) {
+    try {
+        const msg = String(err && (err.message || err));
+        if (msg.includes('requires an index')) {
+            const match = msg.match(/https?:\/\/console\.firebase\.google\.com[^\s)]+/);
+            const url = match ? match[0] : null;
+            const help = 'This query needs a composite Firestore index on fields: user.name (ASC), user.shift (ASC), date (DESC).';
+            if (url) {
+                alert(help + '\n\nA tab will open to create it now.');
+                window.open(url, '_blank');
+            } else {
+                alert(help + '\n\nOpen Firebase Console > Firestore > Indexes > Add composite index (collection: submissions).');
+            }
+        }
+    } catch (e) { /* ignore */ }
+}
 
 async function showSubmissionsPanel() {
     hideAllPanels();
     submissionsPanel.style.display = 'block';
 
-    // تحميل التسليمات
-    await loadSubmissions();
+    // Make header clickable to toggle sort by date
+    const headerEl = submissionsPanel.querySelector('h2');
+    if (headerEl) {
+        headerEl.style.cursor = 'pointer';
+        headerEl.title = 'Click to toggle sort by Date';
+        headerEl.innerText = `Your Submissions (Date ${userSubsSortDir === 'desc' ? '↓' : '↑'})`;
+        if (!headerEl.dataset.sortAttached) {
+            headerEl.addEventListener('click', toggleUserSubsSort);
+            headerEl.dataset.sortAttached = '1';
+        }
+    }
+
+    // Load only current user's submissions (paginated)
+    await loadUserSubmissionsPaginated(submissionsPerPage, true);
 
     // فلتر التاريخ إذا مش موجود
     if (!document.getElementById('date-filter-container')) {
@@ -6172,7 +6051,6 @@ async function showSubmissionsPanel() {
                     <option value="custom">Select date...</option>
                 </select>
                 <input type="date" id="custom-date" class="custom-date" style="display: none;">
-                <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Responder Dashboard</button>
             </div>
         `;
 
@@ -6195,6 +6073,7 @@ async function showSubmissionsPanel() {
         customDate.addEventListener('change', filterSubmissions);
     }
 
+    // Apply initial filter and render
     filterSubmissions();
 }
 
@@ -6205,7 +6084,7 @@ function filterSubmissions() {
 
     submissionsList.innerHTML = '';
 
-    let userSubmissions = state.submissions.filter(sub => sub.user.name === state.currentUser.name);
+    let userSubmissions = [...userSubsCache];
 
     if (filterValue === 'today') {
         userSubmissions = userSubmissions.filter(sub => isToday(sub.date));
@@ -6214,11 +6093,21 @@ function filterSubmissions() {
         userSubmissions = userSubmissions.filter(sub => sub.dateFormatted === selectedDate);
     }
 
-    userSubmissions.sort((a, b) => b.date - a.date);
+    // Apply in-memory sorting
+    if (userSubsSortField === 'date') {
+        userSubmissions.sort((a, b) => userSubsSortDir === 'desc' ? (b.date - a.date) : (a.date - b.date));
+    }
     filteredSubmissions = userSubmissions;
     currentSubmissionPage = 1;
 
     renderSubmissionPage();
+}
+
+function toggleUserSubsSort() {
+    userSubsSortDir = (userSubsSortDir === 'desc') ? 'asc' : 'desc';
+    const headerEl = submissionsPanel.querySelector('h2');
+    if (headerEl) headerEl.innerText = `Your Submissions (Date ${userSubsSortDir === 'desc' ? '↓' : '↑'})`;
+    filterSubmissions();
 }
 
 function renderSubmissionPage() {
@@ -6285,6 +6174,15 @@ function nextSubmissionPage() {
     if (currentSubmissionPage < totalPages) {
         currentSubmissionPage++;
         renderSubmissionPage();
+        return;
+    }
+    // Try to fetch more if available
+    if (userSubsHasMore) {
+        loadUserSubmissionsPaginated().then(() => {
+            filteredSubmissions = [...userSubsCache];
+            currentSubmissionPage++;
+            renderSubmissionPage();
+        });
     }
 }
 
@@ -6312,8 +6210,11 @@ function prevSubmissionPage() {
     // Show the task panel
     showTaskPanel();
 }
-        function cancelTask() {
+        function cancelTask(e) {
+            if (e) e.preventDefault();
             if (confirm('Are you sure you want to cancel this task? All progress will be lost.')) {
+                // Close any open success popup to avoid overlay issues
+                document.querySelectorAll('.quality-popup').forEach(p => p.remove());
                 showTaskPanel();
                 taskIdInput.value = state.currentTask;
                 state.currentTask = null;
@@ -6334,7 +6235,7 @@ function prevSubmissionPage() {
             document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
             userDropdown.innerHTML = '<option value="">Please select shift first</option>';
             userDropdown.disabled = true;
-            flashNumberInput.value = '';
+            if (flashNumberInput) flashNumberInput.value = '';
         }
 
         function hideAllPanels() {
@@ -6344,7 +6245,17 @@ function prevSubmissionPage() {
             submissionsPanel.style.display = 'none';
             adminPanel.style.display = 'none';
             userSubmissionsView.classList.add('hidden');
-            document.getElementById('submission-details-view').classList.add('hidden');
+            // Hide all details views in both user and admin panels
+            document.querySelectorAll('.submission-details-view').forEach(el => el.classList.add('hidden'));
+        }
+
+        // Helper to close popup and return to task panel
+        function closeSubmissionPopup(btn) {
+            try {
+                const root = btn && btn.closest('.quality-popup');
+                if (root) root.remove();
+            } catch (_) { /* ignore */ }
+            startNewTask();
         }
 
         // Global functions
@@ -6361,7 +6272,7 @@ function prevSubmissionPage() {
             const dataStr = JSON.stringify(submissionForExport, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
             
-            const exportFileDefaultName = `AV_Classification_${submission.taskId}.json`;
+            const exportFileDefaultName = `Submission_${submission.taskId}.json`;
             
             const linkElement = document.createElement('a');
             linkElement.setAttribute('href', dataUri);
@@ -6589,12 +6500,12 @@ function prevSubmissionPage() {
         
         return { x: posX, y: posY };
     }
-    
+
     function animateParticle(particle) {
         const pos = resetParticle(particle);
         const duration = Math.random() * 10 + 10;
         const delay = Math.random() * 5;
-        
+    
         setTimeout(() => {
             particle.style.transition = `all ${duration}s linear`;
             particle.style.opacity = Math.random() * 0.3 + 0.1;
@@ -6610,25 +6521,19 @@ function prevSubmissionPage() {
             }, duration * 1000);
         }, delay * 1000);
     }
-    
     // Mouse interaction
     document.addEventListener('mousemove', (e) => {
         const mouseX = (e.clientX / window.innerWidth) * 100;
         const mouseY = (e.clientY / window.innerHeight) * 100;
-        
         const particle = document.createElement('div');
         particle.className = 'particle';
-        
         const size = Math.random() * 4 + 2;
         particle.style.width = `${size}px`;
         particle.style.height = `${size}px`;
-        
         particle.style.left = `${mouseX}%`;
         particle.style.top = `${mouseY}%`;
         particle.style.opacity = '0.6';
-        
         particlesContainer.appendChild(particle);
-        
         setTimeout(() => {
             particle.style.transition = 'all 2s ease-out';
             particle.style.left = `${mouseX + (Math.random() * 10 - 5)}%`;
@@ -6639,7 +6544,6 @@ function prevSubmissionPage() {
                 particle.remove();
             }, 2000);
         }, 10);
-        
         const spheres = document.querySelectorAll('.gradient-sphere');
         const moveX = (e.clientX / window.innerWidth - 0.5) * 5;
         const moveY = (e.clientY / window.innerHeight - 0.5) * 5;
@@ -6648,7 +6552,6 @@ function prevSubmissionPage() {
             sphere.style.transform = `translate(${moveX}px, ${moveY}px)`;
         });
     });
-
     // Add this at the beginning of your JavaScript
     // Create particles for explosion
     function createParticles() {
@@ -6666,7 +6569,6 @@ function prevSubmissionPage() {
             particlesContainer.appendChild(particle);
         }
     }
-
     // Handle loading screen
     window.addEventListener('load', () => {
         createParticles();
@@ -6678,85 +6580,6 @@ function prevSubmissionPage() {
             }, 500);
         }, 2000);
     });
-
-   
-// Safely update the UI and keep existing classes
-function updateClassification() {
-  const answers = {};
-  document.querySelectorAll('.question').forEach(q => {
-    const labelEl = q.querySelector('label');
-    const key = labelEl ? labelEl.textContent.trim() : '';
-    const selected = q.querySelector('input[type="radio"]:checked');
-    if (key && selected) answers[key] = selected.value;
-  });
-
-  const classification = determineClassification(answers);
-
-  const el = document.getElementById('classification-result');
-  if (el) {
-    el.textContent = classification;
-
-    // Preserve existing classes; only replace the classification-* token
-    const keep = el.className.split(' ').filter(c => !c.startsWith('classification-'));
-    const cls = 'classification-' + classification.toLowerCase()
-      .replace(/\s+/g, '-')   // spaces -> dashes
-      .replace(/\+/g, 'plus'); // "+" -> "plus" for valid CSS class
-    el.className = [...keep, cls].join(' ').trim();
-  }
-
-  return classification;
-}
-
-// Read from #classification-result; fallback to last .terminal-message
-function getFinalClassification() {
-  const el = document.getElementById('classification-result');
-  if (el && el.textContent.trim()) return el.textContent.trim();
-
-  const terminalNodes = document.querySelectorAll('.terminal-message');
-  if (terminalNodes.length) {
-    return terminalNodes[terminalNodes.length - 1]
-      .textContent.replace(/^✓\s*/, '').trim();
-  }
-  return 'No final classification determined';
-}
-
-// Wire events so it actually runs
-document.addEventListener('DOMContentLoaded', () => {
-  // Recompute if any radios are pre-checked
-  updateClassification();
-
-  // Recompute whenever a radio changes
-  document.addEventListener('change', (e) => {
-    if (e.target.matches('input[type="radio"]')) updateClassification();
-  });
-});
-
-
-    // Add event listeners to the relevant questions
-    document.querySelectorAll('.question').forEach(question => {
-        const questionText = question.querySelector('label').textContent;
-        if (questionText === 'What is the final severity level?' || 
-            questionText === 'What is the final Non-Physical Collision Severity?' ||
-            questionText === 'Is this a physical collision or exit code 141(Psim/Matrix only)?') {
-            question.querySelectorAll('input[type="radio"]').forEach(radio => {
-                radio.addEventListener('change', updateClassification);
-            });
-        }
-    });
-
-    // Add some CSS for classification styling
-    const style = document.createElement('style');
-    style.textContent = `
-        .classification-rqe { color: #4CAF50; }
-        .classification-nmc { color: #FFA500; }
-        .classification-scel0plus { color: #FF0000; }
-        .classification-scel1 { color: #FF0000; }
-        .classification-scel2 { color: #FF0000; }
-        .classification-scel3 { color: #FF0000; }
-        .classification-scel4 { color: #FF0000; }
-    `;
-    document.head.appendChild(style);
-    
     </script>
 </body>
 </html>
