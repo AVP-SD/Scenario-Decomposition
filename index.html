@@ -5836,75 +5836,77 @@ function startTask(e) {
             return isValid;
         }
 
-        async function submitClassification(e) {
-            e.preventDefault();
+       async function submitClassification(e) {
+    e.preventDefault();
 
-            const submitButton = e.target; // Define earlier to use in case of early return
-            const originalText = submitButton.textContent;
-            
-            if (!collectAnswers()) {
-                alert('Please complete all required questions before submitting');
-                return;
-            }
+    const submitButton = e.target; // Define earlier to use in case of early return
+    const originalText = submitButton.textContent;
+    
+    if (!collectAnswers()) {
+        alert('Please complete all required questions before submitting');
+        return;
+    }
 
-            if (!db || !currentShift) {
-                alert("Firebase is not properly initialized for the current shift. Please select your shift again and wait for confirmation.");
-                console.error("SubmitClassification: Firebase not ready. Current DB state:", db, "Current shift:", currentShift);
-                // No need to disable/re-enable button here as it's not yet disabled for submission
-                return;
-            }
+    if (!db || !currentShift) {
+        alert("Firebase is not properly initialized for the current shift. Please select your shift again and wait for confirmation.");
+        console.error("SubmitClassification: Firebase not ready. Current DB state:", db, "Current shift:", currentShift);
+        return;
+    }
 
-            submitButton.disabled = true;
-            submitButton.innerHTML = `Submitting <span class="loading"></span>`;
+    submitButton.disabled = true;
+    submitButton.innerHTML = `Submitting <span class="loading"></span>`;
 
-            try {
-                const submission = {
-                    user: state.currentUser,
-                    taskId: state.currentTask,
-                    date: new Date(), // Client time; serverTimestamp can be used in save
-                    answers: state.currentAnswers
-                };
+    try {
+        const submission = {
+            user: state.currentUser,
+            taskId: state.currentTask,
+            date: new Date(), // Client time; serverTimestamp can be used in save
+            answers: state.currentAnswers
+        };
 
-                const submissionId = await saveSubmission(submission);
-                submission.id = submissionId;
-                state.submissions.push(submission);
-                
-                // Show custom popup with a fun cat GIF (kept as requested)
-                const popupContent = document.createElement('div');
-                popupContent.className = 'quality-popup';
-                
-                // Pick a fun GIF
-                const gifs = [
-                  'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTI1NnI4Z2g5Y25uaWt5MGoweDE2emluZWZvaW8yazlvOTZnNjBicCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzyTuYCmvSORqs1ABM/giphy.gif',
-                  'https://media.giphy.com/media/13HXKG2HGN8aPK/giphy.gif',
-                  'https://i.giphy.com/H4DjXQXamtTiIuCcRU.webp'
-                ];
-                const catGifUrl = gifs[Math.floor(Math.random() * gifs.length)];
-                
-                popupContent.innerHTML = `
-                    <div class="popup-content">
-                        <img src="${catGifUrl}" alt="Cat reaction" class="cat-gif">
-                        <h3>Submission Successful! 🎉</h3>
-                        <p><strong>Task ID:</strong> ${state.currentTask}</p>
-                        <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Practice Dashboard</button>
-                        <button onclick="closeSubmissionPopup(this)" class="close-popup">Close</button>
-                    </div>
-                `;
-                
-                document.body.appendChild(popupContent);
-                // Auto-close popup after a short delay, then open My Submissions
-                setTimeout(() => {
-                    try { popupContent.remove(); } catch (_) {}
-                    startNewTask();
-                }, 9200000);
-            } catch (error) {
-                console.error("Error submitting:", error);
-                alert("Error during submission. Please try again.");
-            } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = originalText;
-            }
-        }
+        const submissionId = await saveSubmission(submission);
+        submission.id = submissionId;
+        state.submissions.push(submission);
+        
+        // Show custom popup with a fun cat GIF (kept as requested)
+        const popupContent = document.createElement('div');
+        popupContent.className = 'quality-popup';
+        
+        // Pick a fun GIF
+        const gifs = [
+          'https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/giphy.gif',
+          'https://media.giphy.com/media/PQ0VI3S5vqL5pwQQJX/giphy.gif',
+          'https://media.giphy.com/media/dUQL2bKltOU7cO9Maw/giphy.gif',
+          'https://media.giphy.com/media/7V0IPzQflK5lC24r29/giphy.gif',
+          'https://media.giphy.com/media/fXDqamyZLsDqNAcJEf/giphy.gif',
+          'https://media.giphy.com/media/H4DjXQXamtTiIuCcRU/giphy.gif'
+        ];
+        const catGifUrl = gifs[Math.floor(Math.random() * gifs.length)];
+        
+        popupContent.innerHTML = `
+            <div class="popup-content">
+                <img src="${catGifUrl}" alt="Cat reaction" class="cat-gif">
+                <h3>Submission Successful! 🎉</h3>
+                <p><strong>Task ID:</strong> ${state.currentTask}</p>
+                <button id="responder-dashboard-btn" onclick="window.open('https://script.google.com/macros/s/AKfycbzxYnMXHMiXZY2pyXL8AwNISlgQJQPmOVj3Gs7PTyW3pM8OfaV5gIzGybeAdLrtNSGayw/exec', '_blank')">Practice Dashboard</button>
+                <button onclick="closeSubmissionPopup(this)" class="close-popup">Close</button>
+            </div>
+        `;
+        
+        document.body.appendChild(popupContent);
+
+        // 🚀 Instead of auto-closing with a long timer,
+        // the user closes manually OR we can start a new task immediately:
+        // startNewTask(); // uncomment if you want immediate task switching
+
+    } catch (error) {
+        console.error("Error submitting:", error);
+        alert("Error during submission. Please try again.");
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+    }
+}
 
    
 
@@ -6571,4 +6573,3 @@ function prevSubmissionPage() {
     </script>
 </body>
 </html>
-
