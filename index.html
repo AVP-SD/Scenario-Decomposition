@@ -28,6 +28,7 @@
     });
   };
 </script>
+
     <style>
      
         * {
@@ -1262,6 +1263,123 @@
             flex: 1;
             font-weight: 500;
         }
+        
+        /* Fullscreen dark overlay */
+  #overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+    animation: fadeIn 0.3s ease forwards;
+  }
+
+  /* Centered box */
+  .overlay-box {
+    background: #1e1e1e;
+    padding: 2rem 3rem;
+    border-radius: 16px;
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+    transform: translateY(40px);
+    opacity: 0;
+    animation: slideUp 0.4s ease forwards;
+  }
+
+  .overlay-box h2 {
+    margin-bottom: 1rem;
+    color: #25d366;
+    font-size: 1.5rem;
+  }
+  .overlay-box p {
+    margin-bottom: 1.5rem;
+    color: #ccc;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+
+  .btns {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+  }
+  .btns button {
+    padding: 0.7rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  #continueHere {
+    background: #25d366;
+    color: #fff;
+  }
+  #stayThere {
+    background: #444;
+    color: #fff;
+  }
+  
+
+   .caution-banner {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: repeating-linear-gradient(
+      45deg,
+      #ffcc00,
+      #ffcc00 20px,
+      #000 20px,
+      #000 40px
+    );
+    color: black;
+    font-weight: bold;
+    font-size: 20px;
+    text-align: center;
+    padding: 12px 0;
+    overflow: hidden;
+    z-index: 9999;
+  }
+
+  .caution-text {
+    display: inline-block;
+    white-space: nowrap;
+    animation: scrollText 12s linear infinite, pulse 1.5s ease-in-out infinite;
+    background-color: #ffcc00;
+    padding: 5px 20px;
+    border-radius: 5px;
+  }
+
+  @keyframes scrollText {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { color: black; text-shadow: 0 0 5px #ff0; }
+    50% { color: red; text-shadow: 0 0 15px red; }
+  }
+  
+  .btns button:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { background: rgba(0,0,0,0); }
+    to   { background: rgba(0,0,0,0.85); }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+        
+        
     </style>
 </head>
 <body>
@@ -1290,7 +1408,7 @@
     </div>
     <!-- Login Panel -->
     <div id="login-panel" class="panel">
-        <h2>User Login</h2>
+        <h2>User Login🧠</h2>
         
         <!-- Shift Selection -->
         <div class="shift-selection">
@@ -1419,6 +1537,24 @@
         <div id="submission-full-details"></div>
         </div>
     </div>
+
+<!-- Overlay -->
+<div id="overlay">
+  <div class="overlay-box">
+    <h2>This site is already open</h2>
+    <p>You already have this site open in another tab.<br>
+       Would you like to continue here instead?</p>
+    <div class="btns">
+      <button id="continueHere">Continue Here</button>
+      <button id="stayThere">Stay on Other Tab</button>
+    </div>
+  </div>
+  <!-- New full-width banner -->
+<div class="caution-banner">
+  <div class="caution-text">
+    ⚠ Unsaved progress in the other tab may be lost ⚠ Unsaved progress in the other tab may be lost ⚠ Unsaved progress in the other tab may be lost
+  </div>
+</div>
 
     <script>
         // ==============================================
@@ -6574,6 +6710,56 @@ function prevSubmissionPage() {
             }, 500);
         }, 2000);
     });
+(function() {
+  const TAB_KEY = "active_tab_lock";
+  const myId = Date.now().toString();
+  const overlay = document.getElementById("overlay");
+  const btnContinue = document.getElementById("continueHere");
+  const btnStay = document.getElementById("stayThere");
+
+  // Claim active tab
+  localStorage.setItem(TAB_KEY, myId);
+
+  // If another tab already has the lock → show overlay
+  if (localStorage.getItem(TAB_KEY) !== myId) {
+    overlay.style.display = "flex";
+  }
+
+  // Watch for changes
+  window.addEventListener("storage", (e) => {
+    if (e.key === TAB_KEY) {
+      if (e.newValue !== myId) {
+        overlay.style.display = "flex"; // another tab active
+      } else {
+        overlay.style.display = "none"; // this tab reclaimed
+      }
+    }
+  });
+
+  // Button: continue here → take over lock
+  btnContinue.addEventListener("click", () => {
+    localStorage.setItem(TAB_KEY, myId);
+    overlay.style.display = "none";
+  });
+
+  // Button: stay on other tab → close this one
+btnStay.addEventListener("click", () => {
+  window.close();
+  // If browser blocks window.close(), fallback to blank page
+  setTimeout(() => {
+    if (!window.closed) {
+      window.location.href = "about:blank";
+    }
+  }, 200);
+});
+
+  // Cleanup when tab closes
+  window.addEventListener("beforeunload", () => {
+    if (localStorage.getItem(TAB_KEY) === myId) {
+      localStorage.removeItem(TAB_KEY);
+    }
+  });
+})();
     </script>
 </body>
 </html>
