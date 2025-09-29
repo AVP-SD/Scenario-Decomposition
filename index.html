@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -1521,7 +1522,8 @@
 <button id="reset-filters" class="reset-filters back-to-users-btn">Reset</button>
         </div>
         
-        <h3>All Users</h3>
+        <h3>All Users</h3>        <button id="back-to-users-btn">Back to Users</button>
+
     <div id="users-list"></div>
     
     <div id="user-submissions-view" class="hidden">
@@ -5407,9 +5409,11 @@ document.getElementById('reload-all-data').addEventListener('click', async funct
             document.getElementById('user-logout-btn').addEventListener('click', logout);
             document.getElementById('admin-logout-btn').addEventListener('click', logout);
             document.getElementById('cancel-task-btn').addEventListener('click', cancelTask);
-            document.getElementById('back-to-users-btn').addEventListener('click', () => {
-                userSubmissionsView.classList.add('hidden');
-            });
+document.getElementById('back-to-users-btn').addEventListener('click', () => {
+    // Hide submissions, show users list again
+    document.getElementById('user-submissions-view').classList.add('hidden');
+    document.getElementById('users-list').classList.remove('hidden');
+});
 // Update the back button listener to handle both user and admin contexts
 document.getElementById('back-to-submissions-btn').addEventListener('click', function() {
 
@@ -5800,7 +5804,7 @@ window.testSubmissionDetails = function(submissionId) {
         console.log('Submission not found, available IDs:', state.submissions.map(s => s.id));
     }
 };
-
+    document.getElementById('users-list').classList.add('hidden');
     userSubmissionsView.classList.remove('hidden');
     document.getElementById('submission-details-view').classList.add('hidden');
 }
