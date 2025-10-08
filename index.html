@@ -1,6 +1,7 @@
 
 
 
+
 <!DOCTYPE html> 
 <html>
 <head>
@@ -7139,6 +7140,140 @@ btnStay.addEventListener("click", () => {
   });
 })();
     </script>
+<script>
+(function(){
+  const TARGET = [
+    "Which hazardous behavior is used for loss factor and ego action analysis?",
+    "What is the loss factor type you observe?",
+    "What is the loss factor action you observe?",
+    "What is the loss factor relative location you observe?",
+    "What is the loss factor relative motion you observe?"
+  ];
+
+  // store nodes we moved so we can restore them on "re-open"
+  const movedChildren = new WeakMap();
+
+  // insert CSS for smooth collapse (keeps DOM nodes present)
+  function ensureStyle(){
+    if (document.getElementById('lf-collapse-style')) return;
+    const s = document.createElement('style');
+    s.id = 'lf-collapse-style';
+    s.textContent = `
+      /* collapse visually but keep elements in DOM */
+      .options.collapsed {
+        max-height: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
+        transition: max-height 0.28s ease, padding 0.28s ease;
+      }
+      .selected-answer {
+        margin-top: 8px;
+        font-weight: 700;
+        color: #006400;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function setupNode(node){
+    if (!node || node.dataset.lfAttached) return;
+    node.dataset.lfAttached = '1';
+
+    const question = node.querySelector('.question');
+    if (!question) return;
+    const qText = (question.textContent || '').trim();
+    if (!TARGET.some(t => qText.includes(t))) return;
+
+    const optionsDiv = node.querySelector('.options');
+    if (!optionsDiv) return;
+
+    // attach listeners to radios (idempotent because we mark node)
+    const radios = optionsDiv.querySelectorAll("input[type='radio']");
+    radios.forEach(radio => {
+      radio.addEventListener('change', (ev) => {
+        // get label text cleanly
+        const label = radio.closest('label') || radio.parentElement;
+        const selectedLabel = (label && label.textContent || '').trim() || 'Selected';
+
+        // create/refresh visible selected-answer just above options
+        let answerDiv = node.querySelector('.selected-answer');
+        if (!answerDiv) {
+          answerDiv = document.createElement('div');
+          answerDiv.className = 'selected-answer';
+          // insert before optionsDiv so it remains visible when options collapse
+          node.insertBefore(answerDiv, optionsDiv);
+        }
+        answerDiv.textContent = 'Selected: ' + selectedLabel;
+
+        // Allow any DTree logic to add subquestions first, then move them out if needed
+        // small delay ensures dynamic rendering completes
+        setTimeout(() => {
+          // find any child-node elements that are descendants of this node
+          const foundChildNodes = Array.from(node.querySelectorAll('.child-node'));
+          if (foundChildNodes.length) {
+            // move them (preserve order) as siblings right after this node
+            const parent = node.parentNode;
+            foundChildNodes.forEach(ch => parent.insertBefore(ch, node.nextSibling));
+            movedChildren.set(node, foundChildNodes);
+          }
+
+          // finally collapse only the options div visually (DOM kept)
+          optionsDiv.classList.add('collapsed');
+
+        }, 60); // tweak delay if your DTree needs more time (e.g., 150)
+        
+        // scroll back to the question (change behavior to "auto" if you prefer instant)
+        try {
+          question.scrollIntoView({ behavior: "auto", block: "center" });
+        } catch(e) {
+          question.scrollIntoView();
+        }
+
+        // visual flash to highlight
+        question.style.transition = "background-color 0.4s";
+        question.style.backgroundColor = "var(--container-bg)";
+        setTimeout(() => question.style.backgroundColor = "", 1400);
+      });
+    });
+
+    // reopen on question click: restore options and move child nodes back inside node
+    question.addEventListener('click', () => {
+      if (!optionsDiv.classList.contains('collapsed')) return;
+      optionsDiv.classList.remove('collapsed');
+
+      const moved = movedChildren.get(node);
+      if (moved && moved.length) {
+        moved.forEach(ch => node.appendChild(ch));
+        movedChildren.delete(node);
+      }
+    });
+  }
+
+  function initWatch(){
+    ensureStyle();
+
+    // initial pass
+    document.querySelectorAll('.node').forEach(setupNode);
+
+    // watch for dynamic additions (works with JSON-driven DTree)
+    const obs = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        m.addedNodes.forEach(n => {
+          if (n.nodeType !== 1) return;
+          if (n.classList && n.classList.contains('node')) setupNode(n);
+          else if (n.querySelectorAll) n.querySelectorAll('.node').forEach(setupNode);
+        });
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initWatch);
+  } else initWatch();
+
+})();
+</script>
 </body>
 </html>
-
